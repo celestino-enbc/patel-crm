@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Source_Serif_4, Figtree } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
@@ -15,8 +15,13 @@ const serif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Patel CRM · Hub Visor",
+  title: "Patel CRM · Hub VisorLab",
   description: "Seguimiento de peticiones de todos los clientes, con acceso de revisión por cuenta.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

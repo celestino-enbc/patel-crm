@@ -6,3 +6,9 @@
 	encode gzip
 	reverse_proxy web:3000
 }
+
+# Más apps en MARLEY: otro hostname, otro backend.
+# otra.tudominio.com {
+# 	encode gzip
+# 	reverse_proxy otra-app:3000
+# }

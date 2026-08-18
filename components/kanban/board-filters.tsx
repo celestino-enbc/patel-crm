@@ -9,19 +9,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AssigneeKind, Category, Client } from "@/lib/types";
+import type { Category, Client, HubMember } from "@/lib/types";
+import type { BoardFiltersState } from "@/lib/board-filters";
 
-export interface BoardFiltersState {
-  query: string;
-  categoryId: string;
-  clientId: string;
-  assignee: string;
-}
+export type { BoardFiltersState };
 
 interface BoardFiltersProps {
   categories: Category[];
   customers: Client[];
+  hubMembers: HubMember[];
   showClientFilter: boolean;
+  currentUserId: string;
   value: BoardFiltersState;
   onChange: (value: BoardFiltersState) => void;
 }
@@ -29,13 +27,15 @@ interface BoardFiltersProps {
 export function BoardFilters({
   categories,
   customers,
+  hubMembers,
   showClientFilter,
+  currentUserId,
   value,
   onChange,
 }: BoardFiltersProps) {
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-      <div className="relative flex-1">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,0.7fr))] xl:items-center">
+      <div className="relative sm:col-span-2 xl:col-span-1">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={value.query}
@@ -49,7 +49,7 @@ export function BoardFilters({
           value={value.clientId}
           onValueChange={(clientId) => onChange({ ...value, clientId })}
         >
-          <SelectTrigger className="w-full lg:w-56">
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Todos los clientes" />
           </SelectTrigger>
           <SelectContent>
@@ -66,7 +66,7 @@ export function BoardFilters({
         value={value.categoryId}
         onValueChange={(categoryId) => onChange({ ...value, categoryId })}
       >
-        <SelectTrigger className="w-full lg:w-64">
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Todas las categorías" />
         </SelectTrigger>
         <SelectContent>
@@ -82,34 +82,39 @@ export function BoardFilters({
         value={value.assignee}
         onValueChange={(assignee) => onChange({ ...value, assignee })}
       >
-        <SelectTrigger className="w-full lg:w-48">
-          <SelectValue placeholder="Todos los responsables" />
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Turno" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos los responsables</SelectItem>
-          <SelectItem value="hub">Visor</SelectItem>
-          <SelectItem value="client">Cliente</SelectItem>
+          <SelectItem value="all">Cualquier turno</SelectItem>
+          <SelectItem value="hub">Turno VisorLab</SelectItem>
+          <SelectItem value="client">Turno cliente</SelectItem>
         </SelectContent>
       </Select>
+      {showClientFilter && (
+        <Select
+          value={value.responsableId}
+          onValueChange={(responsableId) => onChange({ ...value, responsableId })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Responsable" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los responsables</SelectItem>
+            <SelectItem value="unassigned">Sin asignar</SelectItem>
+            {hubMembers.some((member) => member.id === currentUserId) && (
+              <SelectItem value={currentUserId}>Asignadas a mí</SelectItem>
+            )}
+            {hubMembers
+              .filter((member) => member.id !== currentUserId)
+              .map((member) => (
+                <SelectItem key={member.id} value={member.id}>
+                  {member.full_name}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      )}
     </div>
   );
-}
-
-export function matchesBoardFilters(
-  title: string,
-  description: string,
-  categoryId: string,
-  clientId: string,
-  assigneeKind: AssigneeKind,
-  filters: BoardFiltersState
-) {
-  const query = filters.query.trim().toLowerCase();
-  const matchesQuery =
-    query.length === 0 ||
-    title.toLowerCase().includes(query) ||
-    description.toLowerCase().includes(query);
-  const matchesCategory = filters.categoryId === "all" || filters.categoryId === categoryId;
-  const matchesClient = filters.clientId === "all" || filters.clientId === clientId;
-  const matchesAssignee = filters.assignee === "all" || filters.assignee === assigneeKind;
-  return matchesQuery && matchesCategory && matchesClient && matchesAssignee;
 }

@@ -41,6 +41,12 @@
   }
 }
 
+.kanban-scroll {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
 .kanban-scroll::-webkit-scrollbar {
   height: 10px;
 }
@@ -48,4 +54,9 @@
 .kanban-scroll::-webkit-scrollbar-thumb {
   background: hsl(var(--border));
   border-radius: 999px;
+}
+
+.kanban-column {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }

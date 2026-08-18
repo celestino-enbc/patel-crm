@@ -51,7 +51,7 @@ export function CreateClientDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button variant="outline" className="w-full sm:w-auto">
           <Building2 className="h-4 w-4" />
           Nuevo cliente
         </Button>

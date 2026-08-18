@@ -2,7 +2,7 @@
 
 import { CalendarClock, MessageSquare, Paperclip } from "lucide-react";
 import { Draggable } from "@hello-pangea/dnd";
-import { AssigneeBadge, ClientBadge } from "@/components/layout/org-badge";
+import { AssigneeBadge, ClientBadge, ResponsableBadge } from "@/components/layout/org-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PRIORITY_LABEL } from "@/lib/constants";
@@ -36,6 +36,7 @@ export function TaskCard({ task, index, onOpen, showClient }: TaskCardProps) {
             {showClient && <ClientBadge name={task.client.name} slug={task.client.slug} />}
             <Badge variant="secondary">{task.category.name}</Badge>
             <AssigneeBadge kind={task.assignee_kind} clientName={task.client.name} />
+            <ResponsableBadge member={task.assignee_user} />
             {task.priority === "high" && (
               <Badge variant="destructive">{PRIORITY_LABEL.high}</Badge>
             )}

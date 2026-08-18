@@ -19,7 +19,7 @@ export function KanbanColumn({ status, tasks, onOpenTask, showClient }: KanbanCo
   if (!column) return null;
 
   return (
-    <section className="flex min-w-[280px] flex-1 flex-col rounded-2xl border bg-card/70">
+    <section className="kanban-column flex w-[min(85vw,20rem)] shrink-0 flex-col rounded-2xl border bg-card/70 sm:w-[280px] lg:min-w-[280px] lg:w-auto lg:flex-1">
       <header className={cn("rounded-t-2xl border-b px-4 py-3", column.header)}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">

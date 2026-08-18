@@ -24,20 +24,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { AssigneeKind, Category, Client, TaskPriority } from "@/lib/types";
+import type { AssigneeKind, Category, Client, HubMember, TaskPriority } from "@/lib/types";
 
 interface CreateTaskDialogProps {
   categories: Category[];
   customers: Client[];
+  hubMembers: HubMember[];
   isHub: boolean;
   defaultClientId: string;
+  defaultAssigneeUserId: string | null;
 }
 
 export function CreateTaskDialog({
   categories,
   customers,
+  hubMembers,
   isHub,
   defaultClientId,
+  defaultAssigneeUserId,
 }: CreateTaskDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -45,6 +49,7 @@ export function CreateTaskDialog({
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [clientId, setClientId] = useState(defaultClientId);
   const [assigneeKind, setAssigneeKind] = useState<AssigneeKind>("hub");
+  const [assigneeUserId, setAssigneeUserId] = useState(defaultAssigneeUserId ?? "unassigned");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [dueDate, setDueDate] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -57,6 +62,7 @@ export function CreateTaskDialog({
     setCategoryId(categories[0]?.id ?? "");
     setClientId(defaultClientId);
     setAssigneeKind("hub");
+    setAssigneeUserId(defaultAssigneeUserId ?? "unassigned");
     setPriority("medium");
     setDueDate("");
     setFiles([]);
@@ -74,6 +80,7 @@ export function CreateTaskDialog({
         categoryId,
         clientId,
         assigneeKind,
+        assigneeUserId: isHub ? assigneeUserId : null,
         priority,
         dueDate: dueDate || null,
       });
@@ -109,7 +116,7 @@ export function CreateTaskDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button>
+        <Button className="w-full sm:w-auto">
           <Plus className="h-4 w-4" />
           Nueva petición
         </Button>
@@ -176,7 +183,7 @@ export function CreateTaskDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Responsable asignado</Label>
+            <Label>Turno</Label>
             <Select
               value={assigneeKind}
               onValueChange={(value) => setAssigneeKind(value as AssigneeKind)}
@@ -185,11 +192,29 @@ export function CreateTaskDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="hub">Visor</SelectItem>
+                <SelectItem value="hub">VisorLab</SelectItem>
                 <SelectItem value="client">{selectedCustomer?.name ?? "Cliente"}</SelectItem>
               </SelectContent>
             </Select>
           </div>
+          {isHub && (
+            <div className="space-y-2">
+              <Label>Responsable VisorLab</Label>
+              <Select value={assigneeUserId} onValueChange={setAssigneeUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin asignar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Sin asignar</SelectItem>
+                  {hubMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.full_name || member.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Prioridad</Label>

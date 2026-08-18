@@ -58,7 +58,7 @@ export function clientBadgeClass(slug: string): string {
 }
 
 export function assigneeLabel(kind: AssigneeKind, clientName: string): string {
-  return kind === "hub" ? "Visor" : clientName;
+  return kind === "hub" ? "VisorLab" : clientName;
 }
 
 export const PRIORITY_LABEL: Record<"low" | "medium" | "high", string> = {

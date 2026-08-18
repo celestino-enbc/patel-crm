@@ -20,6 +20,7 @@ Hub de peticiones para **Visor**. Cada cliente entra a revisar solo lo suyo. El 
    - `supabase/migrations/00005_soft_delete.sql`
    - `supabase/migrations/00006_priority_due_date.sql`
    - `supabase/migrations/00007_ops_alerts.sql`
+   - `supabase/migrations/00008_responsables.sql`
 2. Copia `.env.example` a `.env.local` y completa al menos las variables **obligatorias en local**.
 3. En Auth, desactiva *Confirm email*. Recomendado: desactivar el registro público de Auth (el alta pasa por invitación + service role).
 4. `npm install && npm run dev`
@@ -64,33 +65,34 @@ npm run test:e2e  # Playwright: crear → mover → ver desde el cliente
 
 ## ¿Listo para MVP en Hetzner?
 
-**A nivel de producto, sí:** tablero, invitaciones, RLS, evidencias privadas, correo, vencidas y alertas. **A nivel de servidor, ya puedes subirlo** con Docker + Caddy (HTTPS). Antes de abrir a clientes reales:
+**A nivel de producto, sí.** El VPS es **MARLEY** (`77.42.78.96`). Ya hay **Caddy en el host** (80/443) y otra app Docker en `127.0.0.1:3000`. Patel convive como un backend más en `127.0.0.1:3010`; el Caddy de este repo **no** se arranca.
+
+Antes de abrir a clientes reales:
 
 1. Ejecuta **todas** las migraciones `00001`–`00007` en Supabase.
 2. En Auth: desactiva *Confirm email* (o configura el flujo) y **desactiva el registro público**.
 3. No uses las cuentas seed en producción; invita a Visor y a cada cliente.
-4. Apunta un dominio al VPS (`A` → IP de Hetzner).
-5. Completa SMTP de dominio propio y `NEXT_PUBLIC_APP_URL=https://tu-dominio`.
-6. Firewall del VPS: solo **22, 80, 443**.
+4. DNS: `patel.visorlab.study` → `A` `77.42.78.96` (ya apuntado).
+5. Completa SMTP de dominio propio y `NEXT_PUBLIC_APP_URL=https://patel.visorlab.study`.
+6. Firewall: **22, 80, 443** (ya abierto).
 
-Supabase (Postgres, Auth, Storage) sigue en la nube. El servidor Hetzner solo corre Next.js detrás de Caddy.
+Supabase sigue en la nube. MARLEY solo corre el contenedor Next.js.
 
-## Despliegue en Hetzner
-
-En el VPS (Ubuntu), con Docker y Docker Compose instalados:
+## Despliegue en MARLEY
 
 ```bash
-git clone <tu-repo> patel && cd patel
+git clone https://github.com/celestino-enbc/patel-crm.git /home/patel-crm
+cd /home/patel-crm
 cp .env.example .env
-nano .env   # URL de Supabase, service role, SMTP, DOMAIN, ACME_EMAIL, CRON_SECRET
+nano .env
 ```
 
-En `.env` de producción, además de las keys de Supabase:
+En `.env` de producción:
 
 ```
-NEXT_PUBLIC_APP_URL=https://crm.tu-dominio.com
-DOMAIN=crm.tu-dominio.com
-ACME_EMAIL=admin@tu-dominio.com
+NEXT_PUBLIC_APP_URL=https://patel.visorlab.study
+APP_PORT=3010
+DOMAIN=patel.visorlab.study
 CRON_SECRET=un-secreto-largo
 ```
 
@@ -98,11 +100,16 @@ CRON_SECRET=un-secreto-largo
 docker compose up -d --build
 ```
 
-Caddy emite el certificado Let's Encrypt. El servicio `cron` llama cada hora a `/api/cron/overdue`.
+Eso no toca 80/443. Después, añade el sitio al Caddy del host (`/etc/caddy/Caddyfile`; plantilla en `deploy/caddy-marley.conf`) y recarga:
+
+```bash
+systemctl reload caddy
+```
 
 Actualizar:
 
 ```bash
+cd /home/patel-crm
 git pull
 docker compose up -d --build
 ```

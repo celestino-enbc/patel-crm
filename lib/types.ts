@@ -55,6 +55,12 @@ export interface TaskAttachment {
   created_at: string;
 }
 
+export interface HubMember {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 export interface CommentAuthor {
   id: string;
   full_name: string;
@@ -80,6 +86,8 @@ export interface Task {
   client_id: string;
   status: TaskStatus;
   assignee_kind: AssigneeKind;
+  assignee_user_id: string | null;
+  assignee_user: HubMember | null;
   priority: TaskPriority;
   due_date: string | null;
   archived_at: string | null;
@@ -103,6 +111,8 @@ export interface TaskBoardItem {
   client_id: string;
   status: TaskStatus;
   assignee_kind: AssigneeKind;
+  assignee_user_id: string | null;
+  assignee_user: HubMember | null;
   priority: TaskPriority;
   due_date: string | null;
   archived_at: string | null;
@@ -121,6 +131,7 @@ export interface CreateTaskInput {
   categoryId: string;
   clientId: string;
   assigneeKind: AssigneeKind;
+  assigneeUserId?: string | null;
   priority?: TaskPriority;
   dueDate?: string | null;
 }
@@ -131,6 +142,7 @@ export interface UpdateTaskInput {
   description: string;
   categoryId: string;
   assigneeKind: AssigneeKind;
+  assigneeUserId?: string | null;
   priority: TaskPriority;
   dueDate?: string | null;
 }

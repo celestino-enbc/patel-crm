@@ -7,12 +7,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { SIGNED_URL_TTL_SECONDS, isOverdue } from "@/lib/tasks";
 import { getCurrentProfile } from "@/app/actions/auth";
+import { normalizeAssigneeUserId } from "@/lib/team";
 import type {
   ActionResult,
   AssigneeKind,
   Category,
   Client,
   CreateTaskInput,
+  HubMember,
   Task,
   TaskBoardItem,
   TaskPriority,
@@ -53,6 +55,40 @@ function unwrap<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
+function asHubMember(value: unknown): HubMember | null {
+  const row = unwrap(value as HubMember | HubMember[] | null);
+  if (!row?.id) return null;
+  return { id: row.id, full_name: row.full_name, email: row.email };
+}
+
+async function resolveHubAssignee(
+  supabase: ReturnType<typeof createClient>,
+  assigneeUserId: string | null | undefined,
+  actorIsHub: boolean
+): Promise<ActionResult<string | null>> {
+  if (!actorIsHub) {
+    return { success: true, data: null };
+  }
+
+  const normalized = normalizeAssigneeUserId(assigneeUserId);
+  if (!normalized) {
+    return { success: true, data: null };
+  }
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, client:clients (kind)")
+    .eq("id", normalized)
+    .maybeSingle();
+
+  const client = unwrap(data?.client as { kind: string } | { kind: string }[] | null);
+  if (!data || client?.kind !== "hub") {
+    return { success: false, error: "El responsable debe ser un miembro de VisorLab." };
+  }
+
+  return { success: true, data: normalized };
+}
+
 async function getHubClient() {
   const supabase = createClient();
   const { data } = await supabase
@@ -91,6 +127,8 @@ export async function getBoardTasks(): Promise<TaskBoardItem[]> {
       client_id,
       status,
       assignee_kind,
+      assignee_user_id,
+      assignee_user:profiles!assignee_user_id (id, full_name, email),
       priority,
       due_date,
       archived_at,
@@ -122,6 +160,8 @@ export async function getBoardTasks(): Promise<TaskBoardItem[]> {
       client_id: row.client_id,
       status: row.status,
       assignee_kind: row.assignee_kind,
+      assignee_user_id: row.assignee_user_id ?? null,
+      assignee_user: asHubMember(row.assignee_user),
       priority: row.priority,
       due_date: row.due_date,
       archived_at: row.archived_at,
@@ -149,6 +189,8 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
       client_id,
       status,
       assignee_kind,
+      assignee_user_id,
+      assignee_user:profiles!assignee_user_id (id, full_name, email),
       priority,
       due_date,
       archived_at,
@@ -202,6 +244,8 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
 
   return {
     ...data,
+    assignee_user_id: data.assignee_user_id ?? null,
+    assignee_user: asHubMember(data.assignee_user),
     category: unwrap(data.category),
     client: unwrap(data.client),
     creator: creator ? { ...creator, client: creatorClient } : creator,
@@ -255,6 +299,17 @@ export async function createTask(
     .eq("id", input.categoryId)
     .single();
 
+  const assigneeUser = await resolveHubAssignee(
+    supabase,
+    input.assigneeUserId === undefined && profile.client.kind === "hub"
+      ? profile.id
+      : input.assigneeUserId,
+    profile.client.kind === "hub"
+  );
+  if (!assigneeUser.success) {
+    return { success: false, error: assigneeUser.error };
+  }
+
   const { data, error } = await supabase
     .from("tasks")
     .insert({
@@ -263,6 +318,7 @@ export async function createTask(
       category_id: input.categoryId,
       client_id: clientId,
       assignee_kind: input.assigneeKind,
+      assignee_user_id: assigneeUser.data ?? null,
       created_by: profile.id,
       status: "solicitado",
       priority: input.priority && isTaskPriority(input.priority) ? input.priority : "medium",
@@ -375,16 +431,26 @@ export async function updateTask(input: UpdateTaskInput): Promise<ActionResult> 
   }
 
   const supabase = createClient();
+  const patch: Record<string, unknown> = {
+    title: input.title.trim(),
+    description: input.description.trim(),
+    category_id: input.categoryId,
+    assignee_kind: input.assigneeKind,
+    priority: input.priority,
+    due_date: input.dueDate || null,
+  };
+
+  if (profile.client.kind === "hub") {
+    const assigneeUser = await resolveHubAssignee(supabase, input.assigneeUserId, true);
+    if (!assigneeUser.success) {
+      return { success: false, error: assigneeUser.error };
+    }
+    patch.assignee_user_id = assigneeUser.data ?? null;
+  }
+
   const { error } = await supabase
     .from("tasks")
-    .update({
-      title: input.title.trim(),
-      description: input.description.trim(),
-      category_id: input.categoryId,
-      assignee_kind: input.assigneeKind,
-      priority: input.priority,
-      due_date: input.dueDate || null,
-    })
+    .update(patch)
     .eq("id", input.id)
     .is("archived_at", null);
 

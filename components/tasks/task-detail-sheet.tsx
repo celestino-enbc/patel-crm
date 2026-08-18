@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { archiveTask, getTaskById, updateTask } from "@/app/actions/tasks";
 import { uploadTaskAttachments } from "@/app/actions/attachments";
 import { CommentThread } from "@/components/comments/comment-thread";
-import { AssigneeBadge, ClientBadge } from "@/components/layout/org-badge";
+import { AssigneeBadge, ClientBadge, ResponsableBadge } from "@/components/layout/org-badge";
 import { AttachmentGallery } from "@/components/tasks/attachment-gallery";
 import { FileDropzone } from "@/components/tasks/file-dropzone";
 import { Badge } from "@/components/ui/badge";
@@ -31,14 +31,16 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { PRIORITY_LABEL, STATUS_COLUMNS } from "@/lib/constants";
 import { isOverdue } from "@/lib/tasks";
-import type { AssigneeKind, Category, Task, TaskPriority } from "@/lib/types";
+import type { AssigneeKind, Category, HubMember, Task, TaskPriority } from "@/lib/types";
 
 interface TaskDetailSheetProps {
   taskId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   showClient: boolean;
+  isHub: boolean;
   categories: Category[];
+  hubMembers: HubMember[];
 }
 
 export function TaskDetailSheet({
@@ -46,7 +48,9 @@ export function TaskDetailSheet({
   open,
   onOpenChange,
   showClient,
+  isHub,
   categories,
+  hubMembers,
 }: TaskDetailSheetProps) {
   const [task, setTask] = useState<Task | null>(null);
   const [editing, setEditing] = useState(false);
@@ -54,6 +58,7 @@ export function TaskDetailSheet({
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [assigneeKind, setAssigneeKind] = useState<AssigneeKind>("hub");
+  const [assigneeUserId, setAssigneeUserId] = useState("unassigned");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [dueDate, setDueDate] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -77,6 +82,7 @@ export function TaskDetailSheet({
         setDescription(data.description);
         setCategoryId(data.category_id);
         setAssigneeKind(data.assignee_kind);
+        setAssigneeUserId(data.assignee_user_id ?? "unassigned");
         setPriority(data.priority);
         setDueDate(data.due_date ? data.due_date.slice(0, 10) : "");
       }
@@ -117,6 +123,7 @@ export function TaskDetailSheet({
         description,
         categoryId,
         assigneeKind,
+        assigneeUserId: isHub ? assigneeUserId : undefined,
         priority,
         dueDate: dueDate || null,
       });
@@ -168,6 +175,7 @@ export function TaskDetailSheet({
                 {showClient && <ClientBadge name={task.client.name} slug={task.client.slug} />}
                 <Badge variant="secondary">{task.category.name}</Badge>
                 <AssigneeBadge kind={task.assignee_kind} clientName={task.client.name} />
+                <ResponsableBadge member={task.assignee_user} />
                 <Badge variant="outline">{statusLabel}</Badge>
                 <Badge variant={task.priority === "high" ? "destructive" : "outline"}>
                   {PRIORITY_LABEL[task.priority]}
@@ -209,7 +217,7 @@ export function TaskDetailSheet({
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Responsable</Label>
+                      <Label>Turno</Label>
                       <Select
                         value={assigneeKind}
                         onValueChange={(value) => setAssigneeKind(value as AssigneeKind)}
@@ -218,11 +226,29 @@ export function TaskDetailSheet({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="hub">Visor</SelectItem>
+                          <SelectItem value="hub">VisorLab</SelectItem>
                           <SelectItem value="client">{task.client.name}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    {isHub && (
+                      <div className="space-y-2">
+                        <Label>Responsable VisorLab</Label>
+                        <Select value={assigneeUserId} onValueChange={setAssigneeUserId}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Sin asignar</SelectItem>
+                            {hubMembers.map((member) => (
+                              <SelectItem key={member.id} value={member.id}>
+                                {member.full_name || member.email}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label>Prioridad</Label>
                       <Select
