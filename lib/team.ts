@@ -44,6 +44,66 @@ export function groupPeopleByClient<
   });
 }
 
+export type DirectorySort = "created_desc" | "created_asc" | "name_asc";
+
+export type DirectoryListFilters = {
+  idQuery: string;
+  nameQuery: string;
+  companyId: string;
+  userType: string;
+  status: string;
+};
+
+export function userTypeLabel(kind: string | null | undefined): string {
+  return kind === "hub" ? "VisorLab" : "Cliente";
+}
+
+function includesNormalized(haystack: string, needle: string): boolean {
+  if (!needle.trim()) return true;
+  return haystack.toLowerCase().includes(needle.trim().toLowerCase());
+}
+
+export function matchesDirectoryFilters(
+  person: {
+    email: string;
+    full_name: string;
+    client_id: string;
+    status: string;
+    client: { kind: string };
+  },
+  filters: DirectoryListFilters
+): boolean {
+  if (!includesNormalized(person.email, filters.idQuery)) return false;
+  if (!includesNormalized(person.full_name, filters.nameQuery)) return false;
+  if (filters.companyId !== "all" && person.client_id !== filters.companyId) return false;
+  if (filters.userType !== "all" && person.client.kind !== filters.userType) return false;
+  if (filters.status !== "all" && person.status !== filters.status) return false;
+  return true;
+}
+
+export function countActiveDirectoryFilters(filters: DirectoryListFilters): number {
+  let count = 0;
+  if (filters.idQuery.trim()) count += 1;
+  if (filters.nameQuery.trim()) count += 1;
+  if (filters.companyId !== "all") count += 1;
+  if (filters.userType !== "all") count += 1;
+  if (filters.status !== "all") count += 1;
+  return count;
+}
+
+export function sortDirectoryPeople<T extends { full_name: string; created_at: string }>(
+  people: T[],
+  sort: DirectorySort
+): T[] {
+  return [...people].sort((a, b) => {
+    if (sort === "name_asc") return a.full_name.localeCompare(b.full_name, "es");
+    const delta = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    return sort === "created_asc" ? delta : -delta;
+  });
+}
+
+export { compactAge } from "@/lib/list-view";
+
 export function hubMemberLabel(
   member: Pick<HubMember, "full_name" | "email"> | null | undefined
 ): string {

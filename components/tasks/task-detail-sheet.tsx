@@ -3,7 +3,7 @@
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useEffect, useState, useTransition } from "react";
-import { archiveTask, getTaskById, updateTask } from "@/app/actions/tasks";
+import { archiveTask, deleteTask, getTaskById, unarchiveTask, updateTask } from "@/app/actions/tasks";
 import { uploadTaskAttachments } from "@/app/actions/attachments";
 import { CommentThread } from "@/components/comments/comment-thread";
 import { AssigneeBadge, ClientBadge, ResponsableBadge } from "@/components/layout/org-badge";
@@ -150,6 +150,38 @@ export function TaskDetailSheet({
     });
   }
 
+  function handleRestore() {
+    if (!task) return;
+    startTransition(async () => {
+      const result = await unarchiveTask(task.id);
+      if (!result.success) {
+        setError(result.error ?? "No se pudo restaurar.");
+        return;
+      }
+      const data = await getTaskById(task.id);
+      setTask(data);
+    });
+  }
+
+  function handleDelete() {
+    if (!task) return;
+    if (
+      !window.confirm(
+        "Esto elimina de forma definitiva esta petición, comentarios y evidencias. No se puede deshacer. ¿Continuar?"
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await deleteTask(task.id);
+      if (!result.success) {
+        setError(result.error ?? "No se pudo eliminar.");
+        return;
+      }
+      onOpenChange(false);
+    });
+  }
+
   const statusLabel = STATUS_COLUMNS.find((column) => column.id === task?.status)?.label;
   const overdue = task ? isOverdue(task) : false;
 
@@ -287,12 +319,21 @@ export function TaskDetailSheet({
                       {task.description || "Sin notas adicionales."}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
                       Editar
                     </Button>
-                    <Button type="button" variant="destructive" size="sm" onClick={handleArchive}>
-                      Archivar
+                    {task.archived_at ? (
+                      <Button type="button" size="sm" onClick={handleRestore}>
+                        Restaurar
+                      </Button>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" onClick={handleArchive}>
+                        Archivar
+                      </Button>
+                    )}
+                    <Button type="button" variant="destructive" size="sm" onClick={handleDelete}>
+                      Eliminar
                     </Button>
                   </div>
                 </>

@@ -7,12 +7,19 @@ import { TeamCrud } from "@/components/crud/team-crud";
 export const dynamic = "force-dynamic";
 
 export default async function EquipoPage() {
-  await requireHubProfile();
+  const profile = await requireHubProfile();
   const [people, clients, invitations] = await Promise.all([
     getDirectoryPeople(),
     getClients(),
     listInvitations(),
   ]);
 
-  return <TeamCrud people={people} clients={clients} invitations={invitations} />;
+  return (
+    <TeamCrud
+      people={people}
+      clients={clients}
+      invitations={invitations}
+      currentUserId={profile.id}
+    />
+  );
 }

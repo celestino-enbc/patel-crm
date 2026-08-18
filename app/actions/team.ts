@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentProfile } from "@/app/actions/auth";
+import { applyEachId } from "@/lib/bulk";
 import { refreshDashboard } from "@/lib/dashboard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -197,4 +198,63 @@ export async function setPersonStatus(
 
   refreshDashboard();
   return { success: true };
+}
+
+export async function setPeopleStatus(
+  ids: string[],
+  status: PersonStatus
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return applyEachId(ids, (id) => setPersonStatus(id, status));
+}
+
+export async function deletePerson(id: string): Promise<ActionResult> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.client.kind !== "hub") {
+    return { success: false, error: "Solo VisorLab puede eliminar personas." };
+  }
+  if (id === profile.id) {
+    return { success: false, error: "No puedes eliminar tu propia cuenta." };
+  }
+
+  const supabase = createClient();
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("id, status, client:clients (kind)")
+    .eq("id", id)
+    .maybeSingle();
+
+  const client = unwrap(target?.client as { kind: string } | { kind: string }[] | null);
+  if (!target) {
+    return { success: false, error: "No se encontró a esa persona." };
+  }
+
+  if (client?.kind === "hub") {
+    const { count } = await supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", profile.client_id)
+      .eq("status", "active")
+      .neq("id", id);
+    if ((count ?? 0) < 1 && target.status === "active") {
+      return { success: false, error: "Debe quedar al menos un miembro activo de VisorLab." };
+    }
+  }
+
+  const admin = createAdminClient();
+  await admin.from("tasks").update({ created_by: profile.id }).eq("created_by", id);
+  await admin.from("comments").update({ user_id: profile.id }).eq("user_id", id);
+  await admin.from("task_attachments").update({ uploaded_by: profile.id }).eq("uploaded_by", id);
+  await admin.from("invitations").update({ created_by: profile.id }).eq("created_by", id);
+
+  const { error } = await admin.auth.admin.deleteUser(id);
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  refreshDashboard();
+  return { success: true };
+}
+
+export async function deletePeople(ids: string[]): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return applyEachId(ids, deletePerson);
 }

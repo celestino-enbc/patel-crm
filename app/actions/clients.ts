@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { applyEachId, bulkPayload, normalizeIds } from "@/lib/bulk";
 import { refreshDashboard } from "@/lib/dashboard";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { slugifyClientName, type ActionResult, type Client, type CreateClientInput, type UpdateClientInput } from "@/lib/types";
 import { getCurrentProfile } from "@/app/actions/auth";
@@ -162,4 +164,88 @@ export async function unarchiveCustomerClient(clientId: string): Promise<ActionR
 
   refreshDashboard();
   return { success: true };
+}
+
+export async function archiveCustomerClients(
+  ids: string[]
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return setCustomersArchived(ids, new Date().toISOString());
+}
+
+export async function unarchiveCustomerClients(
+  ids: string[]
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return setCustomersArchived(ids, null);
+}
+
+async function setCustomersArchived(
+  ids: string[],
+  archivedAt: string | null
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.client.kind !== "hub") {
+    return { success: false, error: "Solo VisorLab puede archivar clientes." };
+  }
+
+  const unique = normalizeIds(ids);
+  if (unique.length === 0) return { success: false, error: "Selecciona al menos un registro." };
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("clients")
+    .update({ archived_at: archivedAt })
+    .in("id", unique)
+    .eq("kind", "client")
+    .select("id");
+
+  if (error) return { success: false, error: error.message };
+  refreshDashboard();
+  return bulkPayload(data?.length ?? 0, unique.length);
+}
+
+export async function deleteCustomerClient(clientId: string): Promise<ActionResult> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.client.kind !== "hub") {
+    return { success: false, error: "Solo VisorLab puede eliminar clientes." };
+  }
+
+  const supabase = createClient();
+  const { data: client } = await supabase
+    .from("clients")
+    .select("id, kind")
+    .eq("id", clientId)
+    .maybeSingle();
+
+  if (!client || client.kind !== "client") {
+    return { success: false, error: "No se puede eliminar esa cuenta." };
+  }
+
+  const [{ count: people }, { count: tasks }] = await Promise.all([
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("client_id", clientId),
+    supabase.from("tasks").select("id", { count: "exact", head: true }).eq("client_id", clientId),
+  ]);
+
+  if ((people ?? 0) > 0 || (tasks ?? 0) > 0) {
+    return {
+      success: false,
+      error: "Hay personas o peticiones ligadas. Muévelas o elimínalas antes.",
+    };
+  }
+
+  const admin = createAdminClient();
+  await admin.from("invitations").delete().eq("client_id", clientId);
+  const { error } = await admin.from("clients").delete().eq("id", clientId).eq("kind", "client");
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  refreshDashboard();
+  revalidatePath("/login");
+  return { success: true };
+}
+
+export async function deleteCustomerClients(
+  ids: string[]
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return applyEachId(ids, deleteCustomerClient);
 }

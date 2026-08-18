@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { matchesBoardFilters, type BoardFiltersState } from "@/lib/board-filters";
 import {
+  compactAge,
+  countActiveDirectoryFilters,
   groupPeopleByClient,
-  hubMemberLabel,
+  matchesDirectoryFilters,
   matchesResponsableFilter,
   normalizeAssigneeUserId,
+  sortDirectoryPeople,
+  userTypeLabel,
 } from "@/lib/team";
 
 const baseFilters: BoardFiltersState = {
@@ -64,5 +68,42 @@ describe("responsables VisorLab", () => {
     ]);
     expect(groups.map((group) => group.client.kind)).toEqual(["hub", "client"]);
     expect(groups[1]?.people).toHaveLength(2);
+  });
+
+  it("filtra el listado de usuarios por id, tipo y estado", () => {
+    const person = {
+      email: "celestino.estrada@enbc.edu.mx",
+      full_name: "Celestino Estrada",
+      client_id: "h1",
+      status: "active",
+      client: { kind: "hub" },
+    };
+    const filters = {
+      idQuery: "celestino",
+      nameQuery: "estrada",
+      companyId: "all",
+      userType: "hub",
+      status: "active",
+    };
+    expect(matchesDirectoryFilters(person, filters)).toBe(true);
+    expect(matchesDirectoryFilters(person, { ...filters, userType: "client" })).toBe(false);
+    expect(matchesDirectoryFilters(person, { ...filters, status: "pending" })).toBe(false);
+    expect(countActiveDirectoryFilters(filters)).toBe(4);
+    expect(userTypeLabel("hub")).toBe("VisorLab");
+    expect(userTypeLabel("client")).toBe("Cliente");
+  });
+
+  it("ordena usuarios por fecha de alta y muestra edad compacta", () => {
+    const sorted = sortDirectoryPeople(
+      [
+        { full_name: "B", created_at: "2026-08-18T10:00:00.000Z" },
+        { full_name: "A", created_at: "2026-08-18T12:00:00.000Z" },
+      ],
+      "created_desc"
+    );
+    expect(sorted.map((row) => row.full_name)).toEqual(["A", "B"]);
+    expect(compactAge("2026-08-18T11:54:00.000Z", Date.parse("2026-08-18T12:00:00.000Z"))).toBe(
+      "6 m"
+    );
   });
 });

@@ -1,7 +1,9 @@
 "use server";
 
+import { applyEachId, bulkPayload, normalizeIds } from "@/lib/bulk";
 import { refreshDashboard } from "@/lib/dashboard";
 import { getCurrentProfile } from "@/app/actions/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { slugifyClientName, type ActionResult, type Category } from "@/lib/types";
 
@@ -97,4 +99,69 @@ export async function unarchiveCategory(id: string): Promise<ActionResult> {
   if (error) return { success: false, error: error.message };
   refreshDashboard();
   return { success: true };
+}
+
+export async function archiveCategories(
+  ids: string[]
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return setCategoriesArchived(ids, new Date().toISOString());
+}
+
+export async function unarchiveCategories(
+  ids: string[]
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return setCategoriesArchived(ids, null);
+}
+
+async function setCategoriesArchived(
+  ids: string[],
+  archivedAt: string | null
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.client.kind !== "hub") {
+    return { success: false, error: "Solo VisorLab puede archivar categorías." };
+  }
+
+  const unique = normalizeIds(ids);
+  if (unique.length === 0) return { success: false, error: "Selecciona al menos un registro." };
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .update({ archived_at: archivedAt })
+    .in("id", unique)
+    .select("id");
+
+  if (error) return { success: false, error: error.message };
+  refreshDashboard();
+  return bulkPayload(data?.length ?? 0, unique.length);
+}
+
+export async function deleteCategory(id: string): Promise<ActionResult> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.client.kind !== "hub") {
+    return { success: false, error: "Solo VisorLab puede eliminar categorías." };
+  }
+
+  const supabase = createClient();
+  const { count } = await supabase
+    .from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("category_id", id);
+
+  if ((count ?? 0) > 0) {
+    return { success: false, error: "Hay peticiones en esta categoría. Muévelas o elimínalas antes." };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("categories").delete().eq("id", id);
+  if (error) return { success: false, error: error.message };
+  refreshDashboard();
+  return { success: true };
+}
+
+export async function deleteCategories(
+  ids: string[]
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return applyEachId(ids, deleteCategory);
 }

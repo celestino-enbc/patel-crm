@@ -1,5 +1,6 @@
 "use server";
 
+import { applyEachId, bulkPayload, normalizeIds } from "@/lib/bulk";
 import { refreshDashboard } from "@/lib/dashboard";
 import { notifyNewTask, notifyStatusChange } from "@/lib/email";
 import { reportOperationalIssue } from "@/lib/ops-alerts";
@@ -507,6 +508,72 @@ export async function unarchiveTask(taskId: string): Promise<ActionResult> {
 
   refreshDashboard();
   return { success: true };
+}
+
+export async function archiveTasks(ids: string[]): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return setTasksArchived(ids, new Date().toISOString());
+}
+
+export async function unarchiveTasks(ids: string[]): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return setTasksArchived(ids, null);
+}
+
+async function setTasksArchived(
+  ids: string[],
+  archivedAt: string | null
+): Promise<ActionResult<{ ok: number; failed: number }>> {
+  const profile = await getCurrentProfile();
+  if (!profile) return { success: false, error: "Debes iniciar sesión." };
+
+  const unique = normalizeIds(ids);
+  if (unique.length === 0) return { success: false, error: "Selecciona al menos un registro." };
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ archived_at: archivedAt })
+    .in("id", unique)
+    .select("id");
+
+  if (error) return { success: false, error: error.message };
+  refreshDashboard();
+  return bulkPayload(data?.length ?? 0, unique.length);
+}
+
+export async function deleteTask(taskId: string): Promise<ActionResult> {
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    return { success: false, error: "Debes iniciar sesión." };
+  }
+
+  const supabase = createClient();
+  const { data: task } = await supabase.from("tasks").select("id").eq("id", taskId).maybeSingle();
+  if (!task) {
+    return { success: false, error: "No se encontró la petición." };
+  }
+
+  const { data: files } = await supabase
+    .from("task_attachments")
+    .select("file_path")
+    .eq("task_id", taskId);
+
+  const admin = createAdminClient();
+  const paths = (files ?? []).map((file) => file.file_path).filter(Boolean);
+  if (paths.length > 0) {
+    await admin.storage.from("evidencias").remove(paths);
+  }
+
+  const { error } = await admin.from("tasks").delete().eq("id", taskId);
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  refreshDashboard();
+  return { success: true };
+}
+
+export async function deleteTasks(ids: string[]): Promise<ActionResult<{ ok: number; failed: number }>> {
+  return applyEachId(ids, deleteTask);
 }
 
 export async function flagOverdueTasks(): Promise<{ count: number }> {
