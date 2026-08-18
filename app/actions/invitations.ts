@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refreshDashboard } from "@/lib/dashboard";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/app/actions/auth";
 import {
@@ -73,7 +73,7 @@ export async function createInvitation(input: {
     return { success: false, error: error.message };
   }
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   return {
     success: true,
     data: {
@@ -94,7 +94,7 @@ export async function listInvitations(): Promise<InvitationRow[]> {
       "id, client_id, email, expires_at, used_at, created_at, client:clients (id, name, slug, kind)"
     )
     .order("created_at", { ascending: false })
-    .limit(30);
+    .limit(80);
 
   if (error) throw new Error(error.message);
 
@@ -102,6 +102,27 @@ export async function listInvitations(): Promise<InvitationRow[]> {
     const client = Array.isArray(row.client) ? row.client[0] : row.client;
     return { ...row, client } as InvitationRow;
   });
+}
+
+export async function revokeInvitation(id: string): Promise<ActionResult> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.client.kind !== "hub") {
+    return { success: false, error: "Solo VisorLab puede anular invitaciones." };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("invitations")
+    .update({ expires_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("used_at", null);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  refreshDashboard();
+  return { success: true };
 }
 
 export async function getInvitationPreview(

@@ -25,10 +25,17 @@ export interface Client {
   archived_at: string | null;
 }
 
+export const PERSON_STATUSES = ["pending", "active", "disabled"] as const;
+export type PersonStatus = (typeof PERSON_STATUSES)[number];
+
 export interface Profile {
   id: string;
   email: string;
   full_name: string;
+  phone: string | null;
+  job_title: string | null;
+  notes: string | null;
+  status: PersonStatus;
   client_id: string;
   created_at: string;
   updated_at: string;
@@ -59,6 +66,21 @@ export interface HubMember {
   id: string;
   full_name: string;
   email: string;
+  phone?: string | null;
+  job_title?: string | null;
+}
+
+export interface DirectoryPerson {
+  id: string;
+  email: string;
+  full_name: string;
+  phone: string | null;
+  job_title: string | null;
+  notes: string | null;
+  status: PersonStatus;
+  client_id: string;
+  created_at: string;
+  client: Pick<Client, "id" | "name" | "slug" | "kind">;
 }
 
 export interface CommentAuthor {

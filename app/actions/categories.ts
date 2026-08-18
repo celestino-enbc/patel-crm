@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refreshDashboard } from "@/lib/dashboard";
 import { getCurrentProfile } from "@/app/actions/auth";
 import { createClient } from "@/lib/supabase/server";
 import { slugifyClientName, type ActionResult, type Category } from "@/lib/types";
@@ -41,7 +41,7 @@ export async function createCategory(name: string): Promise<ActionResult<Categor
     return { success: false, error: error?.message ?? "No se pudo crear." };
   }
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   return { success: true, data: data as Category };
 }
 
@@ -61,7 +61,7 @@ export async function updateCategory(
     .eq("id", id);
 
   if (error) return { success: false, error: error.message };
-  revalidatePath("/dashboard");
+  refreshDashboard();
   return { success: true };
 }
 
@@ -78,6 +78,23 @@ export async function archiveCategory(id: string): Promise<ActionResult> {
     .eq("id", id);
 
   if (error) return { success: false, error: error.message };
-  revalidatePath("/dashboard");
+  refreshDashboard();
+  return { success: true };
+}
+
+export async function unarchiveCategory(id: string): Promise<ActionResult> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.client.kind !== "hub") {
+    return { success: false, error: "Solo VisorLab puede restaurar categorías." };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("categories")
+    .update({ archived_at: null })
+    .eq("id", id);
+
+  if (error) return { success: false, error: error.message };
+  refreshDashboard();
   return { success: true };
 }

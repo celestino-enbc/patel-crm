@@ -21,6 +21,7 @@ Hub de peticiones para **Visor**. Cada cliente entra a revisar solo lo suyo. El 
    - `supabase/migrations/00006_priority_due_date.sql`
    - `supabase/migrations/00007_ops_alerts.sql`
    - `supabase/migrations/00008_responsables.sql`
+   - `supabase/migrations/00009_people_directory.sql`
 2. Copia `.env.example` a `.env.local` y completa al menos las variables **obligatorias en local**.
 3. En Auth, desactiva *Confirm email*. Recomendado: desactivar el registro público de Auth (el alta pasa por invitación + service role).
 4. `npm install && npm run dev`

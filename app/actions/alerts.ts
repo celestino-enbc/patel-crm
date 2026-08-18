@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refreshDashboard } from "@/lib/dashboard";
 import { getCurrentProfile } from "@/app/actions/auth";
 import { flagOverdueTasks } from "@/app/actions/tasks";
 import { createClient } from "@/lib/supabase/server";
@@ -27,7 +27,7 @@ export async function markOpsAlertRead(id: string) {
   if (!profile || profile.client.kind !== "hub") return;
   const supabase = createClient();
   await supabase.from("ops_alerts").update({ read_at: new Date().toISOString() }).eq("id", id);
-  revalidatePath("/dashboard");
+  refreshDashboard();
 }
 
 export async function runOverdueCheck() {

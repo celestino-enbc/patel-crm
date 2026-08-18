@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refreshDashboard } from "@/lib/dashboard";
 import { ACCEPTED_EVIDENCE_TYPES, MAX_EVIDENCE_SIZE } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult, TaskAttachment } from "@/lib/types";
@@ -87,6 +87,6 @@ export async function uploadTaskAttachments(
     uploaded.push(data as TaskAttachment);
   }
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   return { success: true, data: uploaded };
 }

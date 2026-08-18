@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isPersonActive } from "@/lib/team";
 import type { ActionResult, Profile } from "@/lib/types";
 
 function mapProfile(row: Record<string, unknown> | null): Profile | null {
@@ -48,6 +49,29 @@ export async function signIn(
     return { success: false, error: "Credenciales inválidas. Intenta de nuevo." };
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    const { data: person } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!isPersonActive(person?.status)) {
+      await supabase.auth.signOut();
+      return {
+        success: false,
+        error:
+          person?.status === "pending"
+            ? "Tu cuenta está registrada y espera activación de VisorLab."
+            : "Tu cuenta está desactivada. Pide a VisorLab que la reactive.",
+      };
+    }
+  }
+
   redirect("/dashboard");
 }
 
@@ -56,6 +80,18 @@ export async function signUp(): Promise<ActionResult> {
     success: false,
     error: "El registro abierto está desactivado. Usa un enlace de invitación de Visor.",
   };
+}
+
+export async function requireProfile(): Promise<Profile> {
+  const profile = await getCurrentProfile();
+  if (!profile) redirect("/login");
+  return profile;
+}
+
+export async function requireHubProfile(): Promise<Profile> {
+  const profile = await requireProfile();
+  if (profile.client.kind !== "hub") redirect("/dashboard");
+  return profile;
 }
 
 export async function signOut() {

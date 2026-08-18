@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refreshDashboard } from "@/lib/dashboard";
 import { notifyNewComment } from "@/lib/email";
 import { reportOperationalIssue } from "@/lib/ops-alerts";
 import { createClient } from "@/lib/supabase/server";
@@ -129,6 +129,6 @@ export async function addComment(
     });
   }
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   return { success: true, data: mapComment(data as Record<string, unknown>) };
 }

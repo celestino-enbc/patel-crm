@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
 import { ClientBadge } from "@/components/layout/org-badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ export function AppHeader({ profile }: { profile: Profile }) {
   return (
     <header className="sticky top-0 z-30 border-b bg-card/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between gap-2 px-3 sm:h-16 sm:px-6">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <Link href="/dashboard" className="flex min-w-0 items-center gap-2 sm:gap-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground sm:h-9 sm:w-9">
             P
           </div>
@@ -21,11 +22,11 @@ export function AppHeader({ profile }: { profile: Profile }) {
             <h1 className="truncate text-sm font-semibold leading-tight">
               <span className="sm:hidden">{isHub ? "Hub VisorLab" : profile.client.name}</span>
               <span className="hidden sm:inline">
-                {isHub ? "Hub de peticiones · todos los clientes" : `Peticiones · ${profile.client.name}`}
+                {isHub ? "Hub de peticiones" : `Peticiones · ${profile.client.name}`}
               </span>
             </h1>
           </div>
-        </div>
+        </Link>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <div className="hidden text-right md:block">
             <p className="text-sm font-medium">{profile.full_name}</p>

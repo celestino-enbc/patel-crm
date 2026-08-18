@@ -38,19 +38,29 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  let personActive = Boolean(user);
+  if (user) {
+    const { data: person } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("id", user.id)
+      .maybeSingle();
+    personActive = !person?.status || person.status === "active";
+  }
+
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/invite");
   const isPublicAsset =
     pathname.startsWith("/_next") || pathname.includes(".");
 
-  if (!user && !isAuthRoute && !isPublicAsset) {
+  if (!personActive && !isAuthRoute && !isPublicAsset) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (user && isAuthRoute) {
+  if (personActive && isAuthRoute) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     redirectUrl.search = "";

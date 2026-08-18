@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refreshDashboard } from "@/lib/dashboard";
 import { notifyNewTask, notifyStatusChange } from "@/lib/email";
 import { reportOperationalIssue } from "@/lib/ops-alerts";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -77,13 +77,13 @@ async function resolveHubAssignee(
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, client:clients (kind)")
+    .select("id, status, client:clients (kind)")
     .eq("id", normalized)
     .maybeSingle();
 
   const client = unwrap(data?.client as { kind: string } | { kind: string }[] | null);
-  if (!data || client?.kind !== "hub") {
-    return { success: false, error: "El responsable debe ser un miembro de VisorLab." };
+  if (!data || client?.kind !== "hub" || (data.status && data.status !== "active")) {
+    return { success: false, error: "El responsable debe ser un miembro activo de VisorLab." };
   }
 
   return { success: true, data: normalized };
@@ -114,9 +114,11 @@ export async function getCategories(): Promise<Category[]> {
   return (data ?? []) as Category[];
 }
 
-export async function getBoardTasks(): Promise<TaskBoardItem[]> {
+export async function getBoardTasks(options?: {
+  includeArchived?: boolean;
+}): Promise<TaskBoardItem[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("tasks")
     .select(
       `
@@ -141,8 +143,13 @@ export async function getBoardTasks(): Promise<TaskBoardItem[]> {
       attachments:task_attachments (id)
     `
     )
-    .is("archived_at", null)
     .order("created_at", { ascending: false });
+
+  if (!options?.includeArchived) {
+    query = query.is("archived_at", null);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(error.message);
@@ -353,7 +360,7 @@ export async function createTask(
     });
   }
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   return { success: true, data: { id: data.id } };
 }
 
@@ -413,7 +420,7 @@ export async function updateTaskStatus(
     });
   }
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   return { success: true };
 }
 
@@ -458,7 +465,7 @@ export async function updateTask(input: UpdateTaskInput): Promise<ActionResult> 
     return { success: false, error: error.message };
   }
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   return { success: true };
 }
 
@@ -478,7 +485,27 @@ export async function archiveTask(taskId: string): Promise<ActionResult> {
     return { success: false, error: error.message };
   }
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
+  return { success: true };
+}
+
+export async function unarchiveTask(taskId: string): Promise<ActionResult> {
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    return { success: false, error: "Debes iniciar sesión." };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("tasks")
+    .update({ archived_at: null })
+    .eq("id", taskId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  refreshDashboard();
   return { success: true };
 }
 

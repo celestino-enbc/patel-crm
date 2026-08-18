@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { matchesBoardFilters, type BoardFiltersState } from "@/lib/board-filters";
 import {
+  groupPeopleByClient,
   hubMemberLabel,
   matchesResponsableFilter,
   normalizeAssigneeUserId,
@@ -46,10 +47,22 @@ describe("responsables VisorLab", () => {
     expect(matchesBoardFilters(task, { ...baseFilters, assignee: "client" })).toBe(false);
   });
 
-  it("etiqueta a la persona o Sin asignar", () => {
-    expect(hubMemberLabel({ full_name: "Ana Pérez", email: "ana@visorlab.study" })).toBe(
-      "Ana Pérez"
-    );
-    expect(hubMemberLabel(null)).toBe("Sin asignar");
+  it("agrupa personas por empresa, hub primero", () => {
+    const groups = groupPeopleByClient([
+      {
+        client_id: "c1",
+        client: { id: "c1", name: "Two Sides", kind: "client" },
+      },
+      {
+        client_id: "h1",
+        client: { id: "h1", name: "Visor", kind: "hub" },
+      },
+      {
+        client_id: "c1",
+        client: { id: "c1", name: "Two Sides", kind: "client" },
+      },
+    ]);
+    expect(groups.map((group) => group.client.kind)).toEqual(["hub", "client"]);
+    expect(groups[1]?.people).toHaveLength(2);
   });
 });

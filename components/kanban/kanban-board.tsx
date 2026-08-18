@@ -7,10 +7,6 @@ import { updateTaskStatus } from "@/app/actions/tasks";
 import { BoardFilters } from "@/components/kanban/board-filters";
 import { matchesBoardFilters, type BoardFiltersState } from "@/lib/board-filters";
 import { KanbanColumn } from "@/components/kanban/kanban-column";
-import { CreateClientDialog } from "@/components/clients/create-client-dialog";
-import { InviteDialog } from "@/components/clients/invite-dialog";
-import { ManageCatalogDialog } from "@/components/clients/manage-catalog-dialog";
-import { HubTeamDialog } from "@/components/team/hub-team-dialog";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet";
 import { STATUS_COLUMNS } from "@/lib/constants";
@@ -20,7 +16,6 @@ interface KanbanBoardProps {
   initialTasks: TaskBoardItem[];
   categories: Category[];
   customers: Client[];
-  clients: Client[];
   hubMembers: HubMember[];
   profile: Profile;
 }
@@ -29,12 +24,10 @@ export function KanbanBoard({
   initialTasks,
   categories,
   customers,
-  clients,
   hubMembers,
   profile,
 }: KanbanBoardProps) {
   const isHub = profile.client.kind === "hub";
-  const hub = clients.find((client) => client.kind === "hub") ?? null;
   const [tasks, setTasks] = useState(initialTasks);
   const [filters, setFilters] = useState<BoardFiltersState>({
     query: "",
@@ -100,21 +93,15 @@ export function KanbanBoard({
           value={filters}
           onChange={setFilters}
         />
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-          {isHub && <HubTeamDialog hub={hub} members={hubMembers} />}
-          {isHub && <InviteDialog clients={clients} />}
-          {isHub && <CreateClientDialog />}
-          {isHub && <ManageCatalogDialog customers={customers} categories={categories} />}
-          <div className="col-span-2 sm:col-span-1 sm:ml-auto">
-            <CreateTaskDialog
-              categories={categories}
-              customers={customers}
-              hubMembers={hubMembers}
-              isHub={isHub}
-              defaultClientId={isHub ? customers[0]?.id ?? "" : profile.client_id}
-              defaultAssigneeUserId={isHub ? profile.id : null}
-            />
-          </div>
+        <div className="flex justify-end">
+          <CreateTaskDialog
+            categories={categories}
+            customers={customers}
+            hubMembers={hubMembers}
+            isHub={isHub}
+            defaultClientId={isHub ? customers[0]?.id ?? "" : profile.client_id}
+            defaultAssigneeUserId={isHub ? profile.id : null}
+          />
         </div>
       </div>
       <p className="text-xs text-muted-foreground sm:hidden">Desliza el tablero hacia los lados para ver las columnas.</p>
