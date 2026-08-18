@@ -1,0 +1,50 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+    env_file:
+      - .env
+    restart: unless-stopped
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+  cron:
+    image: curlimages/curl:8.12.1
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - web
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "cron de vencidas cada hora";
+        while true; do
+          curl -fsS -H "Authorization: Bearer $$CRON_SECRET" http://web:3000/api/cron/overdue || true;
+          sleep 3600;
+        done
+
+volumes:
+  caddy_data:
+  caddy_config:
